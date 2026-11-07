@@ -137,7 +137,7 @@ async function main() {
     allowanceCache.set(`${a.karigarId}:${a.categoryId}`, a.allowedWastagePct.toString());
   }
 
-  function nextJobNumber() {
+  function nextJobNumber(): string {
     const number = `JOB-${jobSeq++}`;
     return number === SAMPLE_JOB_NUMBER ? nextJobNumber() : number;
   }
