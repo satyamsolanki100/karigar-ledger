@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CLERK
+  FINANCE_HEAD
+}
+
+enum JobStatus {
+  OPEN
+  CLOSED
+}
+
+enum EntryType {
+  VAULT_OPENING
+  ISSUE
+  RECEIPT_PIECE
+  RECEIPT_SCRAP
+  RECEIPT_FILINGS
+  REFINER_OUT
+  REFINER_IN
+}
+
+enum Location {
+  VAULT
+  KARIGAR
+  REFINER
+  EXTERNAL
+}
+
+enum ReadingStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+}
+
+enum AlertKind {
+  OVER_ALLOWANCE
+  DRIFT
+}
+
+enum AlertStatus {
+  OPEN
+  REVIEWED
+  DISMISSED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+
+  entries        LedgerEntry[]
+  readings       ScaleReading[] @relation("ReadingConfirmedBy")
+  reviewedAlerts LossAlert[]
+  auditEvents    AuditEvent[]
+}
+
+model ItemCategory {
+  id                String  @id @default(cuid())
+  name              String  @unique
+  defaultWastagePct Decimal @db.Decimal(5, 2)
+
+  allowances KarigarAllowance[]
+  jobs       Job[]
+}
+
+model Karigar {
+  id       String   @id @default(cuid())
+  code     String   @unique
+  name     String
+  phone    String?
+  active   Boolean  @default(true)
+  joinedAt DateTime @default(now())
+
+  allowances KarigarAllowance[]
+  jobs       Job[]
+  entries    LedgerEntry[]
+  alerts     LossAlert[]
+}
+
+/// Agreed wastage % for one karigar on one item category. S: "karigar master with agreed wastage % per item category".
+model KarigarAllowance {
+  karigarId         String
+  categoryId        String
+  allowedWastagePct Decimal @db.Decimal(5, 2)
+
+  karigar  Karigar      @relation(fields: [karigarId], references: [id])
+  category ItemCategory @relation(fields: [categoryId], references: [id])
+
+  @@id([karigarId, categoryId])
+}
+
+/// A job groups the issues and receipts for one piece of work, so wastage is settled per job.
+model Job {
+  id          String    @id @default(cuid())
+  jobNumber   String    @unique
+  karigarId   String
+  categoryId  String
+  description String
+  status      JobStatus @default(OPEN)
+  openedAt    DateTime  @default(now())
+  closedAt    DateTime?
+
+  karigar  Karigar      @relation(fields: [karigarId], references: [id])
+  category ItemCategory @relation(fields: [categoryId], references: [id])
+  entries  LedgerEntry[]
+}
+
+/// Double-entry movement of fine gold between locations. Karigar and vault balances are sums over this table.
+model LedgerEntry {
+  id           String    @id @default(cuid())
+  txnNumber    String    @unique
+  type         EntryType
+  fromLocation Location
+  toLocation   Location
+  karigarId    String?
+  jobId        String?
+  grossWeight  Decimal   @db.Decimal(10, 3)
+  purityPct    Decimal   @db.Decimal(5, 2)
+  fineWeight   Decimal   @db.Decimal(10, 3)
+  huid         String?
+  note         String?
+  occurredAt   DateTime  @default(now())
+  enteredById  String
+  readingId    String?   @unique
+
+  karigar   Karigar?      @relation(fields: [karigarId], references: [id])
+  job       Job?          @relation(fields: [jobId], references: [id])
+  enteredBy User          @relation(fields: [enteredById], references: [id])
+  reading   ScaleReading? @relation(fields: [readingId], references: [id])
+
+  @@index([karigarId, occurredAt])
+  @@index([occurredAt])
+}
+
+/// One photo of a scale display or karat meter and what the model read from it.
+model ScaleReading {
+  id            String        @id @default(cuid())
+  photo         Bytes
+  photoMime     String
+  provider      String
+  readWeight    Decimal?      @db.Decimal(10, 3)
+  readPurityPct Decimal?      @db.Decimal(5, 2)
+  confidence    Decimal       @db.Decimal(4, 3)
+  rawResponse   Json
+  status        ReadingStatus @default(PENDING)
+  confirmedById String?
+  createdAt     DateTime      @default(now())
+
+  confirmedBy User?        @relation("ReadingConfirmedBy", fields: [confirmedById], references: [id])
+  entry       LedgerEntry?
+}
+
+model LossAlert {
+  id            String      @id @default(cuid())
+  karigarId     String
+  jobId         String?
+  kind          AlertKind
+  allowedPct    Decimal     @db.Decimal(5, 2)
+  actualPct     Decimal     @db.Decimal(5, 2)
+  baselinePct   Decimal?    @db.Decimal(5, 2)
+  excessGrams   Decimal     @db.Decimal(10, 3)
+  status        AlertStatus @default(OPEN)
+  reviewedById  String?
+  reviewNote    String?
+  createdAt     DateTime    @default(now())
+  reviewedAt    DateTime?
+
+  karigar    Karigar @relation(fields: [karigarId], references: [id])
+  reviewedBy User?   @relation(fields: [reviewedById], references: [id])
+
+  @@index([status, createdAt])
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  entityType String
+  entityId   String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
