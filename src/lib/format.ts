@@ -62,3 +62,7 @@ export const ENTRY_LABEL: Record<string, string> = {
   REFINER_OUT: "To refiner",
   REFINER_IN: "From refiner",
 };
+
+export function daysSince(date: Date, now = new Date()): number {
+  return Math.floor((now.getTime() - date.getTime()) / 86_400_000);
+}
