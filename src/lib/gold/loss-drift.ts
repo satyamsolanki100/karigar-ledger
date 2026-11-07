@@ -12,7 +12,7 @@ export type SettledJobSample = {
 export type DriftPolicy = {
   /** Jobs needed before a karigar has a history worth comparing against. */
   minHistoryJobs: number;
-  /** Percentage points above the karigar's own median that count as drift. */
+  /** Percentage points above the karigar's own usual gap that count as drift. */
   driftPoints: Decimal.Value;
 };
 
@@ -24,6 +24,7 @@ export type LossFinding =
       kind: "DRIFT";
       actualPct: Decimal;
       allowedPct: Decimal;
+      /** The karigar's usual gap to allowance in points; negative means usually under. */
       baselinePct: Decimal;
       excessGrams: Decimal;
     };
@@ -35,10 +36,15 @@ export function median(values: Decimal.Value[]): Decimal {
   return sorted[mid - 1].plus(sorted[mid]).div(2);
 }
 
+/** Loss relative to what was agreed for that job, so a ring job and a necklace job compare fairly. */
+export function gapToAllowance(sample: Pick<SettledJobSample, "actualPct" | "allowedPct">): Decimal {
+  return percent(new Decimal(sample.actualPct).minus(sample.allowedPct));
+}
+
 /**
  * Brief: "flags karigars whose loss drifts from their own history". Two findings can come
- * out of one job: over the agreed allowance, and drifting above the karigar's own median,
- * which catches a slow rise long before it crosses the allowance.
+ * out of one job: over the agreed allowance, and drifting above the karigar's own median
+ * gap to allowance, which catches a slow rise long before it crosses the allowance.
  */
 export function evaluateLoss(
   current: SettledJobSample,
@@ -56,8 +62,9 @@ export function evaluateLoss(
 
   const earlier = history.filter((h) => h.jobId !== current.jobId && h.closedAt < current.closedAt);
   if (earlier.length >= policy.minHistoryJobs) {
-    const baselinePct = percent(median(earlier.map((h) => h.actualPct)));
-    if (actualPct.minus(baselinePct).greaterThanOrEqualTo(policy.driftPoints)) {
+    const baselinePct = percent(median(earlier.map(gapToAllowance)));
+    const currentGap = gapToAllowance(current);
+    if (currentGap.minus(baselinePct).greaterThanOrEqualTo(policy.driftPoints)) {
       findings.push({ kind: "DRIFT", actualPct, allowedPct, baselinePct, excessGrams });
     }
   }

@@ -107,13 +107,23 @@ model Job {
   karigarId   String
   categoryId  String
   description String
+  /// Agreed % copied from the karigar master when the job opens, so later renegotiation does not rewrite history.
+  allowedPct  Decimal   @db.Decimal(5, 2)
   status      JobStatus @default(OPEN)
   openedAt    DateTime  @default(now())
   closedAt    DateTime?
 
+  issuedFine   Decimal? @db.Decimal(10, 3)
+  receivedFine Decimal? @db.Decimal(10, 3)
+  lossGrams    Decimal? @db.Decimal(10, 3)
+  allowedGrams Decimal? @db.Decimal(10, 3)
+  excessGrams  Decimal? @db.Decimal(10, 3)
+  actualPct    Decimal? @db.Decimal(5, 2)
+
   karigar  Karigar      @relation(fields: [karigarId], references: [id])
   category ItemCategory @relation(fields: [categoryId], references: [id])
   entries  LedgerEntry[]
+  alerts   LossAlert[]
 }
 
 /// Double-entry movement of fine gold between locations. Karigar and vault balances are sums over this table.
@@ -177,6 +187,7 @@ model LossAlert {
   reviewedAt    DateTime?
 
   karigar    Karigar @relation(fields: [karigarId], references: [id])
+  job        Job?    @relation(fields: [jobId], references: [id])
   reviewedBy User?   @relation(fields: [reviewedById], references: [id])
 
   @@index([status, createdAt])
