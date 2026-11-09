@@ -47,3 +47,9 @@ next-env.d.ts
 # local editor and agent config
 /.claude/
 .neon
+
+.vercel
+.env*
+
+# zip handed to the reviewers, built from docs/
+/submission/

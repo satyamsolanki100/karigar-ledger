@@ -1,6 +1,7 @@
 # Deployment
 
 Repository: https://github.com/satyamsolanki100/karigar-ledger
+Live app: https://karigar-ledger.vercel.app (Vercel, Neon Postgres in Singapore, mock photo reader until an Anthropic key is set)
 
 ## Run locally
 

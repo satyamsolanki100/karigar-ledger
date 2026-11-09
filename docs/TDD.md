@@ -1,7 +1,7 @@
 # Karigar Ledger: Technical Design Document
 
 **GitHub:** https://github.com/satyamsolanki100/karigar-ledger
-**Live app:** see deployment.md (Vercel URL added on deploy)
+**Live app:** https://karigar-ledger.vercel.app
 **Author:** Satyam Kumar Solanki · November 2026
 **Brief:** Jewellery chain's karigar gold ledger and old-gold desk app (Company A, Coimbatore)
 
